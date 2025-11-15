@@ -3,20 +3,145 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Miami Prototype — GTA-like demo (single file)</title>
+<title>Miami Prototype — GTA-style dual POV</title>
 <style>
-  /* layout: fixed, no scrolling, full viewport */
-  html,body { height:100%; margin:0; background:linear-gradient(#0f2233,#2b0f2f); overflow:hidden; font-family:Segoe UI,Roboto,Arial,sans-serif; }
-  #gameRoot { width:100vw; height:100vh; display:flex; align-items:flex-start; justify-content:center; position:relative; }
-  canvas { box-shadow:0 8px 30px rgba(0,0,0,0.7); border-radius:8px; background:linear-gradient(#88d9ff 0%, #b2efff 40%, #ffd3e6 100%); width:1200px; height:700px; max-width:calc(100vw - 40px); max-height:calc(100vh - 40px); image-rendering:pixelated; touch-action:none; }
-  #ui { position:absolute; left:20px; top:18px; color:white; text-shadow:0 1px 3px rgba(0,0,0,0.8); }
-  .badge { background:rgba(0,0,0,0.25); padding:6px 10px; border-radius:6px; margin-bottom:6px; display:inline-block; font-size:13px; }
-  #hint { position:absolute; right:20px; top:18px; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,0.7); }
-  #enterHouse { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); background:rgba(255,255,255,0.96); color:#111; padding:20px; border-radius:8px; display:none; width:420px; box-shadow:0 8px 30px rgba(0,0,0,0.5); }
-  #enterHouse h3 { margin:0 0 8px 0; font-size:18px; }
-  #controls { position:absolute; left:20px; bottom:18px; color:#fff; font-size:13px; }
-  #fps { position:absolute; right:20px; bottom:18px; color:#fff; }
-  .toggle { background:rgba(0,0,0,0.25); padding:6px 8px; border-radius:6px; cursor:pointer; margin-left:8px; display:inline-block; }
+  :root {
+    color-scheme: dark;
+  }
+  html,body {
+    height:100%;
+    margin:0;
+    background:linear-gradient(#07121f,#1b0f1f);
+    overflow:hidden;
+    font-family: "Segoe UI", Roboto, Arial, sans-serif;
+  }
+  * {
+    box-sizing:border-box;
+  }
+  #gameRoot {
+    width:100vw;
+    height:100vh;
+    display:flex;
+    align-items:flex-start;
+    justify-content:center;
+    position:relative;
+    padding:0;
+  }
+  canvas {
+    box-shadow:0 18px 60px rgba(0,0,0,0.65);
+    border-radius:12px;
+    background:#6ec3ff;
+    width:1200px;
+    height:700px;
+    max-width:calc(100vw - 40px);
+    max-height:calc(100vh - 40px);
+    image-rendering:pixelated;
+    touch-action:none;
+    border:1px solid rgba(255,255,255,0.08);
+  }
+  #ui {
+    position:absolute;
+    left:20px;
+    top:16px;
+    color:#fff;
+    text-shadow:0 1px 3px rgba(0,0,0,0.7);
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+  .badge {
+    background:rgba(0,0,0,0.35);
+    padding:6px 12px;
+    border-radius:999px;
+    font-size:13px;
+    display:inline-flex;
+    align-items:center;
+  }
+  #hint {
+    position:absolute;
+    right:20px;
+    top:16px;
+    max-width:360px;
+    color:#fff;
+    text-align:right;
+    text-shadow:0 1px 2px rgba(0,0,0,0.75);
+    font-size:13px;
+  }
+  #controls {
+    position:absolute;
+    left:20px;
+    bottom:18px;
+    color:#fff;
+    font-size:13px;
+    display:flex;
+    gap:12px;
+    align-items:center;
+  }
+  #controls .toggle {
+    background:rgba(255,255,255,0.12);
+    padding:6px 14px;
+    border-radius:999px;
+    cursor:pointer;
+    transition:background 0.15s;
+  }
+  #controls .toggle:hover {
+    background:rgba(255,255,255,0.22);
+  }
+  #fps {
+    position:absolute;
+    right:20px;
+    bottom:18px;
+    color:#fff;
+    font-size:13px;
+    text-shadow:0 1px 2px rgba(0,0,0,0.7);
+  }
+  #enterHouse {
+    position:absolute;
+    left:50%;
+    top:50%;
+    transform:translate(-50%,-50%);
+    background:rgba(255,255,255,0.97);
+    color:#111;
+    padding:22px 28px;
+    border-radius:10px;
+    box-shadow:0 18px 50px rgba(0,0,0,0.5);
+    width:420px;
+    display:none;
+  }
+  #enterHouse h3 {
+    margin:0 0 12px 0;
+    font-size:20px;
+    letter-spacing:0.02em;
+  }
+  #enterHouse button {
+    border:none;
+    background:#2573ff;
+    color:#fff;
+    border-radius:6px;
+    padding:8px 16px;
+    cursor:pointer;
+    font-weight:600;
+  }
+  #pointerHint {
+    position:absolute;
+    left:50%;
+    top:50%;
+    transform:translate(-50%,-50%);
+    background:rgba(0,0,0,0.72);
+    color:#fff;
+    padding:18px 26px;
+    border-radius:10px;
+    font-size:14px;
+    text-align:center;
+    box-shadow:0 12px 40px rgba(0,0,0,0.55);
+    display:none;
+    max-width:320px;
+    line-height:1.4;
+  }
+  @media (max-width:780px) {
+    #hint { display:none; }
+    #controls { flex-direction:column; align-items:flex-start; }
+  }
 </style>
 </head>
 <body>
@@ -24,522 +149,841 @@
   <canvas id="gameCanvas" width="1200" height="700"></canvas>
 
   <div id="ui">
-    <div class="badge" id="title">dan finn's miami prototype</div>
+    <div class="badge" id="title">miami sandbox prototype</div>
     <div class="badge" id="mode">view: 3rd person</div>
   </div>
 
   <div id="hint">
-    <div class="badge">wasd/arrows: move • e: enter/exit car/door • c: toggle view • xbox controller supported</div>
+    <div class="badge">wasd / arrows: move · e: enter / exit · c: switch pov · click canvas (1st-person) for mouse-look · [ / ] rotate without mouse · xbox controller supported</div>
   </div>
 
   <div id="controls">
-    <span class="badge">engine: js/canvas prototype</span>
-    <span class="toggle" id="resetBtn">reset</span>
+    <span class="badge">engine: vanilla js + canvas</span>
+    <span class="toggle" id="resetBtn">reset world</span>
   </div>
 
   <div id="fps"></div>
 
   <div id="enterHouse">
-    <h3>house interior</h3>
-    <p>this is a minimal house interior overlay. press <b>e</b> to exit.</p>
-    <div style="text-align:right;margin-top:12px;"><button id="closeHouse">exit</button></div>
+    <h3>House Interior</h3>
+    <p>Lightweight placeholder interior. Press <strong>E</strong> or use the button to exit.</p>
+    <div style="text-align:right;margin-top:16px;">
+      <button id="closeHouse">Exit</button>
+    </div>
+  </div>
+
+  <div id="pointerHint">
+    First-person mouse-look is off.<br>Click once inside the scene to lock the cursor.<br><span style="font-size:12px;opacity:0.8;">(Press Esc to release · use [ and ] to rotate if you prefer keyboard)</span>
   </div>
 </div>
 
 <script>
-/* -----------------------------------------------------------
-   simple GTA-like prototype (single script file)
-   - canvas render
-   - player movement (walking)
-   - cars: driveable & exitable, simple physics
-   - houses: interactive overlay (enter/exit)
-   - 3rd / 1st person modes
-   - xbox controller (gamepad API)
-   - fixed viewport, non-scrollable
-   comments: every comment line starts lowercase
-------------------------------------------------------------*/
+/* ------------------------------------------------------------------
+   gta-inspired miami prototype (single script)
+   - single canvas, fixed viewport, responsive scaling (no scrolling)
+   - player movement, cars (drive & exit), house interiors
+   - third-person top-down + true first-person projection
+   - xbox controller support via Gamepad API
+   - pointer lock mouse-look with keyboard/gamepad fallback
+------------------------------------------------------------------- */
 
 /* -----------------------
-   configuration & globals
-   -----------------------*/
+   canvas & ui references
+----------------------- */
 const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d', {alpha:false});
-const width = canvas.width, height = canvas.height;
-let lastTime = performance.now();
-let debugFPS = 0;
+const ctx = canvas.getContext('2d', { alpha:false });
+const width = canvas.width;
+const height = canvas.height;
 
 const uiMode = document.getElementById('mode');
+const fpsLabel = document.getElementById('fps');
+const resetBtn = document.getElementById('resetBtn');
 const enterHouseDiv = document.getElementById('enterHouse');
 const closeHouseBtn = document.getElementById('closeHouse');
+const pointerHint = document.getElementById('pointerHint');
 
+/* -----------------------
+   world state
+----------------------- */
 const world = {
-  // simple tiled ground color + roads
-  buildings: [], // houses, rectangles with door positions
-  cars: [],      // car objects
+  mapSize: { w: 3200, h: 2000 },
   player: null,
-  camera: { x:0, y:0, zoom:1 },
-  mapSize: { w: 4000, h: 2400 } // large map
+  cars: [],
+  buildings: [],
+  decor: [],
+  roads: [],
+  camera: { x:0, y:0, zoom:1 }
 };
 
 /* -----------------------
    utility helpers
-   -----------------------*/
-function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
-function len(x,y) { return Math.hypot(x,y); }
-function now() { return performance.now(); }
+----------------------- */
+const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+const len = (x, y) => Math.hypot(x, y);
+const toRad = deg => deg * Math.PI / 180;
 
 /* -----------------------
    player & car classes
-   -----------------------*/
+----------------------- */
 class Player {
   constructor(x,y){
-    this.x = x; this.y = y;
-    this.angle = 0; // facing rad
-    this.speed = 0;
-    this.walkSpeed = 240; // px/s
-    this.radius = 12;
-    this.inCar = null; // reference to car when inside
+    this.x = x;
+    this.y = y;
+    this.angle = 0;
+    this.heading = toRad(90); // default facing south
+    this.walkSpeed = 260;
+    this.radius = 14;
+    this.inCar = null;
+    this.currentSpeed = 0;
+    this.eyeHeight = 64;
   }
-  update(dt, input) {
-    if (this.inCar) {
-      // player position follows the car when inside
-      this.x = this.inCar.x; this.y = this.inCar.y;
+  update(dt, input, viewMode){
+    if (this.inCar){
+      this.x = this.inCar.x;
+      this.y = this.inCar.y;
+      this.heading = this.inCar.angle;
       this.angle = this.inCar.angle;
+      this.currentSpeed = 0;
       return;
     }
-    // walking movement (camera-forward independent)
-    let vx = 0, vy = 0;
-    if (input.up) vy -= 1;
-    if (input.down) vy += 1;
-    if (input.left) vx -= 1;
-    if (input.right) vx += 1;
-    const l = Math.hypot(vx,vy);
-    if (l>0) { vx/=l; vy/=l; this.angle = Math.atan2(vy, vx); }
-    this.x += vx * this.walkSpeed * dt;
-    this.y += vy * this.walkSpeed * dt;
-    // clamp to map boundaries
+
+    if (viewMode === 'first'){
+      const mouseYaw = input.lookDeltaX * 0.0025;
+      const analogYaw = input.lookAnalog * 1.6 * dt;
+      const keyYaw = ((input.turnKeyRight?1:0) - (input.turnKeyLeft?1:0)) * 1.9 * dt;
+      this.heading += mouseYaw + analogYaw + keyYaw;
+      this.angle = this.heading;
+      input.lookDeltaX = 0;
+
+      const forward = { x: Math.cos(this.heading), y: Math.sin(this.heading) };
+      const right = { x: Math.cos(this.heading + Math.PI/2), y: Math.sin(this.heading + Math.PI/2) };
+      let moveX = 0, moveY = 0;
+      if (input.moveForward) { moveX += forward.x; moveY += forward.y; }
+      if (input.moveBackward) { moveX -= forward.x; moveY -= forward.y; }
+      if (input.moveLeft) { moveX -= right.x; moveY -= right.y; }
+      if (input.moveRight) { moveX += right.x; moveY += right.y; }
+
+      const mag = len(moveX, moveY);
+      if (mag > 0){
+        const normX = moveX / mag;
+        const normY = moveY / mag;
+        const appliedSpeed = this.walkSpeed * Math.min(1, mag);
+        this.x += normX * appliedSpeed * dt;
+        this.y += normY * appliedSpeed * dt;
+        this.currentSpeed = appliedSpeed;
+      } else {
+        this.currentSpeed = 0;
+      }
+    } else {
+      let vx = (input.moveRight?1:0) - (input.moveLeft?1:0);
+      let vy = (input.moveBackward?1:0) - (input.moveForward?1:0);
+      const mag = len(vx, vy);
+      if (mag > 0){
+        vx /= mag;
+        vy /= mag;
+        this.x += vx * this.walkSpeed * dt;
+        this.y += vy * this.walkSpeed * dt;
+        this.angle = Math.atan2(vy, vx);
+        this.heading = this.angle;
+        this.currentSpeed = this.walkSpeed;
+      } else {
+        this.currentSpeed = 0;
+      }
+    }
+
     this.x = clamp(this.x, 20, world.mapSize.w - 20);
     this.y = clamp(this.y, 20, world.mapSize.h - 20);
   }
-  draw(ctx, cam, viewMode) {
-    const screen = worldToScreen(this.x,this.y,cam);
+  draw(ctx, cam, viewMode){
+    if (viewMode === 'first') return;
+    const screen = worldToScreen(this.x, this.y, cam);
     ctx.save();
     ctx.translate(screen.x, screen.y);
-    // if first person, draw small indicator only
-    if (viewMode === 'first') {
-      ctx.fillStyle = '#fff';
-      ctx.beginPath(); ctx.arc(0,0,6,0,Math.PI*2); ctx.fill();
-    } else {
-      // 3rd person player sprite: simple circle + direction
-      ctx.fillStyle = '#ffd966';
-      ctx.beginPath(); ctx.arc(0,0,this.radius,0,Math.PI*2); ctx.fill();
-      // facing arrow
-      ctx.rotate(this.angle);
-      ctx.fillStyle = '#333';
-      ctx.fillRect(0, -4, this.radius+8, 8);
-    }
+    ctx.fillStyle = '#ffd966';
+    ctx.beginPath();
+    ctx.arc(0,0,this.radius,0,Math.PI*2);
+    ctx.fill();
+    ctx.rotate(this.angle);
+    ctx.fillStyle = '#222';
+    ctx.fillRect(0,-4,this.radius+10,8);
     ctx.restore();
   }
 }
 
 class Car {
   constructor(x,y,color='#ff5d73'){
-    this.x = x; this.y = y;
-    this.w = 48; this.h = 28;
+    this.x = x;
+    this.y = y;
+    this.w = 48;
+    this.h = 28;
     this.color = color;
     this.angle = 0;
     this.speed = 0;
-    this.maxSpeed = 420; // px/s
-    this.accel = 800;
+    this.maxSpeed = 480;
+    this.accel = 820;
     this.brake = 1200;
-    this.turnSpeed = 2.2; // rad/s at speed factor
+    this.turnSpeed = 2.6;
     this.friction = 0.9;
-    this.driver = null; // player when driving
+    this.driver = null;
   }
-  update(dt, input) {
-    if (this.driver) {
-      // car controlled
-      let forward = (input.up?1:0) - (input.down?1:0);
-      if (forward > 0) {
-        this.speed += this.accel * dt;
-      } else if (forward < 0) {
-        this.speed -= this.brake * dt;
+  update(dt, input){
+    if (this.driver){
+      const forwardInput = clamp(-input.axisY, -1, 1);
+      if (forwardInput > 0){
+        this.speed += this.accel * forwardInput * dt;
+      } else if (forwardInput < 0){
+        this.speed += this.brake * forwardInput * dt; // backward (negative)
       } else {
-        // natural friction
         this.speed *= Math.pow(this.friction, dt*60);
-        if (Math.abs(this.speed) < 6) this.speed = 0;
+        if (Math.abs(this.speed) < 4) this.speed = 0;
       }
-      this.speed = clamp(this.speed, -this.maxSpeed*0.4, this.maxSpeed);
-      // turning affected by speed
-      const turnInput = (input.left?1:0) - (input.right?1:0);
+      this.speed = clamp(this.speed, -this.maxSpeed*0.45, this.maxSpeed);
+
+      const steerInput = clamp(input.axisX, -1, 1);
       const speedFactor = Math.min(1, Math.abs(this.speed) / this.maxSpeed);
-      this.angle += turnInput * this.turnSpeed * speedFactor * dt;
-      // move in facing direction
+      this.angle += steerInput * this.turnSpeed * speedFactor * dt;
+
       this.x += Math.cos(this.angle) * this.speed * dt;
       this.y += Math.sin(this.angle) * this.speed * dt;
     } else {
-      // idle friction
       this.speed *= Math.pow(this.friction, dt*60);
       if (Math.abs(this.speed) < 2) this.speed = 0;
     }
-    // keep in bounds
-    this.x = clamp(this.x, 10, world.mapSize.w - 10);
-    this.y = clamp(this.y, 10, world.mapSize.h - 10);
+
+    this.x = clamp(this.x, 30, world.mapSize.w - 30);
+    this.y = clamp(this.y, 30, world.mapSize.h - 30);
   }
-  draw(ctx, cam, viewMode) {
-    const s = worldToScreen(this.x,this.y,cam);
+  draw(ctx, cam, viewMode){
+    if (viewMode === 'first') return;
+    const s = worldToScreen(this.x, this.y, cam);
     ctx.save();
     ctx.translate(s.x, s.y);
     ctx.rotate(this.angle);
-    // car shadow
-    ctx.fillStyle = 'rgba(0,0,0,0.18)';
-    ctx.beginPath(); ctx.ellipse(4, 12, this.w*0.7 * cam.zoom * 0.5, this.h*0.6 * cam.zoom * 0.5, 0, 0, Math.PI*2); ctx.fill();
-    // main car body
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.beginPath();
+    ctx.ellipse(4, 10, this.w*0.32, this.h*0.25, 0, 0, Math.PI*2);
+    ctx.fill();
     ctx.fillStyle = this.color;
     ctx.fillRect(-this.w/2, -this.h/2, this.w, this.h);
-    // windows
-    ctx.fillStyle = 'rgba(255,255,255,0.6)';
-    ctx.fillRect(0 - this.w/4, -this.h/4, this.w/2, this.h/3);
-    // simple wheels
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.fillRect(-this.w/4, -this.h/4, this.w/2, this.h/2);
     ctx.fillStyle = '#111';
-    ctx.fillRect(-this.w/2 + 4, this.h/2 - 6, 10, 6);
-    ctx.fillRect(this.w/2 - 14, this.h/2 - 6, 10, 6);
+    ctx.fillRect(-this.w/2+4, this.h/2-6, 12, 6);
+    ctx.fillRect(this.w/2-16, this.h/2-6, 12, 6);
     ctx.restore();
   }
 }
 
 /* -----------------------
    world generation
-   -----------------------*/
-function createDemoWorld() {
-  // create player in a mid-map location
-  world.player = new Player(800, 600);
+----------------------- */
+function createDemoWorld(){
+  world.buildings = [];
+  world.cars = [];
+  world.decor = [];
+  world.roads = [
+    { x: 0, y: 520, w: world.mapSize.w, h: 210 },
+    { x: 0, y: 1100, w: world.mapSize.w, h: 220 },
+    { x: 980, y: 0, w: 240, h: world.mapSize.h }
+  ];
 
-  // create bunch of houses (simple rectangles)
-  const cols = 5, rows = 3;
-  for (let r=0;r<rows;r++){
-    for (let c=0;c<cols;c++){
-      const bx = 400 + c*420 + (r%2)*40;
-      const by = 200 + r*420;
-      const bw = 240, bh = 160;
-      const door = { x: bx + bw - 20, y: by + bh/2 };
-      world.buildings.push({ x:bx, y:by, w:bw, h:bh, door });
+  world.player = new Player(world.mapSize.w * 0.35, world.mapSize.h * 0.62);
+
+  const palettes = [
+    ['#ffe3ef', '#ff9dd7'],
+    ['#fbeacc', '#ffb870'],
+    ['#cff3f9', '#5dd0ff'],
+    ['#f4d0ff', '#d28bff']
+  ];
+
+  let id = 0;
+  for (let r=0; r<3; r++){
+    for (let c=0; c<5; c++){
+      const bx = 360 + c*420 + (r%2)*60;
+      const by = 260 + r*420;
+      const bw = 260;
+      const bh = 160;
+      const palette = palettes[(r+c)%palettes.length];
+      const windows = [];
+      for (let rx=14; rx<bw-20; rx+=46){
+        for (let ry=12; ry<bh-22; ry+=34){
+          windows.push({ x: rx, y: ry, color: Math.random()>0.6 ? '#ffeebb' : '#9fffe0' });
+        }
+      }
+      world.buildings.push({
+        id:id++,
+        x: bx,
+        y: by,
+        w: bw,
+        h: bh,
+        color: palette[0],
+        roof: palette[1],
+        door: { x: bx + bw - 28, y: by + bh/2 + 10 },
+        windows
+      });
     }
   }
 
-  // place some cars
-  world.cars.push(new Car(1100, 700, '#ff5d73'));
-  world.cars.push(new Car(980, 950, '#66ffb2'));
-  world.cars.push(new Car(1400, 1100, '#ffd66b'));
+  world.cars.push(new Car(1180, 760, '#ff5d73'));
+  world.cars.push(new Car(980, 980, '#66ffb2'));
+  world.cars.push(new Car(1450, 1200, '#ffd66b'));
+  world.cars.push(new Car(1850, 640, '#5dd0ff'));
+
+  for (let i=0;i<20;i++){
+    world.decor.push({
+      x: 200 + Math.random() * (world.mapSize.w - 400),
+      y: 200 + Math.random() * (world.mapSize.h - 400),
+      height: 110 + Math.random()*60
+    });
+  }
+
+  world.camera.x = world.player.x;
+  world.camera.y = world.player.y;
 }
 
 /* -----------------------
-   input handling (keyboard + gamepad)
-   -----------------------*/
-const input = { up:false, down:false, left:false, right:false, enter:false, toggleView:false };
+   input handling
+----------------------- */
+const keyState = {
+  forward:false, backward:false, left:false, right:false,
+  interact:false, toggleView:false,
+  turnLeft:false, turnRight:false
+};
+const padState = {
+  axisX:0, axisY:0, lookX:0,
+  forward:false, backward:false, left:false, right:false,
+  interact:false, toggleView:false
+};
+const input = {
+  moveForward:false, moveBackward:false, moveLeft:false, moveRight:false,
+  axisX:0, axisY:0,
+  interact:false,
+  toggleView:false,
+  lookDeltaX:0,
+  lookAnalog:0,
+  turnKeyLeft:false,
+  turnKeyRight:false,
+  pointerLocked:false
+};
 
+function setKeyState(key, value){
+  switch (key){
+    case 'w': case 'arrowup': keyState.forward = value; break;
+    case 's': case 'arrowdown': keyState.backward = value; break;
+    case 'a': keyState.left = value; break;
+    case 'd': keyState.right = value; break;
+    case 'arrowleft': keyState.left = value; keyState.turnLeft = value; break;
+    case 'arrowright': keyState.right = value; keyState.turnRight = value; break;
+    case 'e': keyState.interact = value; break;
+    case 'c': if (value) keyState.toggleView = true; break;
+    case '[': keyState.turnLeft = value; break;
+    case ']': keyState.turnRight = value; break;
+  }
+}
 window.addEventListener('keydown', e => {
-  if (e.key === 'w' || e.key === 'ArrowUp') input.up = true;
-  if (e.key === 's' || e.key === 'ArrowDown') input.down = true;
-  if (e.key === 'a' || e.key === 'ArrowLeft') input.left = true;
-  if (e.key === 'd' || e.key === 'ArrowRight') input.right = true;
-  if (e.key.toLowerCase() === 'e') input.enter = true;
-  if (e.key.toLowerCase() === 'c') input.toggleView = true;
+  if (e.repeat) return;
+  setKeyState(e.key.toLowerCase(), true);
   if (e.key.toLowerCase() === 'r') resetWorld();
 });
-
 window.addEventListener('keyup', e => {
-  if (e.key === 'w' || e.key === 'ArrowUp') input.up = false;
-  if (e.key === 's' || e.key === 'ArrowDown') input.down = false;
-  if (e.key === 'a' || e.key === 'ArrowLeft') input.left = false;
-  if (e.key === 'd' || e.key === 'ArrowRight') input.right = false;
-  if (e.key.toLowerCase() === 'e') input.enter = false;
-  if (e.key.toLowerCase() === 'c') input.toggleView = false;
+  setKeyState(e.key.toLowerCase(), false);
 });
 
-/* gamepad support: xbox controller mapping */
-function pollGamepad() {
-  const g = navigator.getGamepads ? navigator.getGamepads()[0] : null;
-  if (!g) return;
-  // left stick axes: g.axes[0] horizontal, g.axes[1] vertical
+function composeInput(){
+  input.moveForward = keyState.forward || padState.forward;
+  input.moveBackward = keyState.backward || padState.backward;
+  input.moveLeft = keyState.left || padState.left;
+  input.moveRight = keyState.right || padState.right;
+
+  const keyAxisX = (keyState.right?1:0) - (keyState.left?1:0);
+  const keyAxisY = (keyState.backward?1:0) - (keyState.forward?1:0);
+  input.axisX = clamp(keyAxisX + padState.axisX, -1, 1);
+  input.axisY = clamp(keyAxisY + padState.axisY, -1, 1);
+
+  input.interact = keyState.interact || padState.interact;
+  input.lookAnalog = padState.lookX;
+  input.turnKeyLeft = keyState.turnLeft;
+  input.turnKeyRight = keyState.turnRight;
+
+  input.toggleView = keyState.toggleView || padState.toggleView;
+  keyState.toggleView = false;
+  padState.toggleView = false;
+}
+
+let prevPadButtons = { A:false, B:false };
+function pollGamepad(){
+  const gamepads = navigator.getGamepads ? navigator.getGamepads() : null;
+  const g = gamepads ? gamepads[0] : null;
+  if (!g){
+    padState.axisX = padState.axisY = padState.lookX = 0;
+    padState.forward = padState.backward = padState.left = padState.right = false;
+    padState.interact = false;
+    return;
+  }
   const dead = 0.2;
-  const ax = Math.abs(g.axes[0]) > dead ? g.axes[0] : 0;
-  const ay = Math.abs(g.axes[1]) > dead ? g.axes[1] : 0;
-  input.left = ax < -0.4;
-  input.right = ax > 0.4;
-  input.up = ay < -0.4;
-  input.down = ay > 0.4;
-  // A button (index 0) for enter/exit
-  input.enter = g.buttons[0]?.pressed;
-  // B button (1) toggles view (on press)
-  if (g.buttons[1]?.pressed && !pollGamepad._prevB) input.toggleView = true;
-  else input.toggleView = false;
-  pollGamepad._prevB = g.buttons[1]?.pressed;
+  const lx = Math.abs(g.axes[0]) > dead ? g.axes[0] : 0;
+  const ly = Math.abs(g.axes[1]) > dead ? g.axes[1] : 0;
+  const rx = Math.abs(g.axes[2]) > dead ? g.axes[2] : 0;
+  padState.axisX = lx;
+  padState.axisY = ly;
+  padState.lookX = rx;
+  padState.forward = ly < -dead;
+  padState.backward = ly > dead;
+  padState.left = lx < -dead;
+  padState.right = lx > dead;
+  padState.interact = !!(g.buttons[0] && g.buttons[0].pressed);
+  if (g.buttons[1] && g.buttons[1].pressed && !prevPadButtons.B){
+    padState.toggleView = true;
+  }
+  prevPadButtons.A = !!(g.buttons[0] && g.buttons[0].pressed);
+  prevPadButtons.B = !!(g.buttons[1] && g.buttons[1].pressed);
+}
+
+/* pointer lock for first-person look */
+canvas.addEventListener('click', () => {
+  if (viewMode === 'first' && !input.pointerLocked){
+    canvas.requestPointerLock();
+  }
+});
+document.addEventListener('pointerlockchange', () => {
+  input.pointerLocked = document.pointerLockElement === canvas;
+  updatePointerHint();
+});
+document.addEventListener('mousemove', e => {
+  if (!input.pointerLocked) return;
+  input.lookDeltaX += e.movementX;
+});
+
+/* -----------------------
+   coordinate helpers
+----------------------- */
+function worldToScreen(wx, wy, cam){
+  const sx = (wx - cam.x) + width/2;
+  const sy = (wy - cam.y) + height/2;
+  return { x:sx, y:sy };
+}
+function screenRectFromWorld(rect, cam){
+  const topLeft = worldToScreen(rect.x, rect.y, cam);
+  const bottomRight = worldToScreen(rect.x + rect.w, rect.y + rect.h, cam);
+  return { x:topLeft.x, y:topLeft.y, w:bottomRight.x - topLeft.x, h:bottomRight.y - topLeft.y };
+}
+function toCameraSpace(wx, wy, origin, heading){
+  const dx = wx - origin.x;
+  const dy = wy - origin.y;
+  const cos = Math.cos(heading);
+  const sin = Math.sin(heading);
+  const forward = dx * cos + dy * sin;
+  const side = -dx * sin + dy * cos;
+  return { forward, side };
 }
 
 /* -----------------------
-   world -> screen conversion
-   camera simple follow
-   -----------------------*/
-function worldToScreen(wx, wy, cam) {
-  // camera centered on player (or car)
-  const cx = cam.x, cy = cam.y;
-  const sx = (wx - cx) + width/2;
-  const sy = (wy - cy) + height/2;
-  return { x: sx, y: sy, zoom: cam.zoom };
-}
-
-function updateCamera(dt, viewMode) {
-  // camera follows driver if in car, else player
-  const follow = world.player.inCar ? world.player.inCar : world.player;
-  // smooth follow
-  world.camera.x += (follow.x - world.camera.x) * clamp(6*dt, 0, 1);
-  world.camera.y += (follow.y - world.camera.y) * clamp(6*dt, 0, 1);
-  // zoom levels for 1st/3rd person
-  world.camera.zoom = viewMode === 'third' ? 1 : 1.0;
-}
-
-/* -----------------------
-   interactions: enter/exit cars & houses
-   -----------------------*/
-function tryEnterExit() {
-  // if inside house, pressing e will close interior
-  if (enterHouseDiv.style.display === 'block') {
+   interactions
+----------------------- */
+function tryEnterExit(){
+  if (enterHouseDiv.style.display === 'block'){
     closeHouse();
     return;
   }
-
-  // if player in car -> exit to side
-  if (world.player.inCar) {
+  if (world.player.inCar){
     const car = world.player.inCar;
-    // eject offset
-    const exitX = car.x + Math.cos(car.angle) * (car.w + 24);
-    const exitY = car.y + Math.sin(car.angle) * (car.w + 24);
-    world.player.inCar.driver = null;
+    const exitX = car.x + Math.cos(car.angle) * (car.w + 30);
+    const exitY = car.y + Math.sin(car.angle) * (car.w + 30);
+    car.driver = null;
     world.player.inCar = null;
-    world.player.x = clamp(exitX, 20, world.mapSize.w - 20);
-    world.player.y = clamp(exitY, 20, world.mapSize.h - 20);
+    world.player.x = clamp(exitX, 30, world.mapSize.w - 30);
+    world.player.y = clamp(exitY, 30, world.mapSize.h - 30);
     return;
   }
-
-  // if near a car -> enter it
-  for (let c of world.cars) {
-    if (len(world.player.x - c.x, world.player.y - c.y) < 60) {
-      // assign driver
-      c.driver = world.player;
-      world.player.inCar = c;
-      // set player's pos to car immediately
-      world.player.x = c.x; world.player.y = c.y;
+  for (const car of world.cars){
+    if (len(world.player.x - car.x, world.player.y - car.y) < 60){
+      car.driver = world.player;
+      world.player.inCar = car;
+      world.player.heading = car.angle;
       return;
     }
   }
-
-  // if near house door -> show interior
-  for (let b of world.buildings) {
+  for (const b of world.buildings){
     const d = b.door;
-    if (len(world.player.x - d.x, world.player.y - d.y) < 48) {
-      // open interior overlay
+    if (len(world.player.x - d.x, world.player.y - d.y) < 48){
       openHouse(b);
       return;
     }
   }
 }
-
-/* -----------------------
-   house overlay handling
-   -----------------------*/
-function openHouse(building) {
+function openHouse(b){
+  if (document.pointerLockElement === canvas) document.exitPointerLock();
   enterHouseDiv.style.display = 'block';
-  enterHouseDiv.querySelector('h3').textContent = 'interior - house';
+  enterHouseDiv.querySelector('h3').textContent = `Interior — Casa ${b.id+1}`;
 }
-function closeHouse() {
+function closeHouse(){
   enterHouseDiv.style.display = 'none';
 }
 
 /* -----------------------
-   main loop
-   -----------------------*/
-let viewMode = 'third'; // 'third' or 'first'
-function mainLoop(ts) {
-  const dt = Math.min(0.05, (ts - lastTime) / 1000);
-  lastTime = ts;
-
-  // poll gamepad (if connected)
-  pollGamepad();
-
-  // handle toggles (toggleView should trigger only once per keypress)
-  if (input.toggleView) {
-    viewMode = (viewMode === 'third') ? 'first' : 'third';
-    uiMode.textContent = 'view: ' + (viewMode === 'third' ? '3rd person' : '1st person');
-    input.toggleView = false;
-  }
-
-  // action button pressed -> enter / exit / open door
-  if (input.enter) {
-    // debounce simple: handle immediately, then require release to re-trigger
-    if (!mainLoop._enterHeld) tryEnterExit();
-    mainLoop._enterHeld = true;
-  } else mainLoop._enterHeld = false;
-
-  // update player & cars
-  world.player.update(dt, input);
-  for (let c of world.cars) c.update(dt, input);
-
-  // update camera
-  updateCamera(dt, viewMode);
-
-  // render scene
-  renderScene(viewMode);
-
-  // fps meter
-  debugFPS = Math.round(1/dt);
-  document.getElementById('fps').textContent = debugFPS + ' fps';
-
-  window.requestAnimationFrame(mainLoop);
+   camera handling
+----------------------- */
+function updateCamera(dt){
+  const target = world.player.inCar ? world.player.inCar : world.player;
+  world.camera.x += (target.x - world.camera.x) * clamp(6*dt, 0, 1);
+  world.camera.y += (target.y - world.camera.y) * clamp(6*dt, 0, 1);
 }
 
 /* -----------------------
-   rendering
-   -----------------------*/
-function renderScene(viewMode) {
-  // clear to Miami sky
-  ctx.fillStyle = '#88d9ff';
-  ctx.fillRect(0,0,width,height);
-
-  // background gradient / distant skyline
-  drawBackground();
-
-  // compute simple parallax camera (we already have camera pos)
-  const cam = world.camera;
-
-  // draw ground: asphalt roads and sand, stylized neon edges
-  drawGround(cam);
-
-  // draw buildings (houses)
-  for (let b of world.buildings) {
-    drawBuilding(b, cam);
+   rendering pipeline
+----------------------- */
+function renderScene(){
+  if (viewMode === 'third'){
+    renderThirdPerson();
+  } else {
+    renderFirstPerson();
   }
-
-  // draw cars (behind player if needed)
-  for (let c of world.cars) c.draw(ctx, cam, viewMode);
-
-  // draw player
-  world.player.draw(ctx, cam, viewMode);
-
-  // draw HUD minimap
   drawMinimap();
 }
 
-function drawBackground() {
-  // skyline + palm silhouettes for miami vibe
-  const g = ctx.createLinearGradient(0,0,0, height*0.6);
-  g.addColorStop(0, "#fbe7ff");
-  g.addColorStop(0.5, "#ffd2e6");
-  g.addColorStop(1, "#8ec5ff");
-  ctx.fillStyle = g;
-  ctx.fillRect(0,0,width, height*0.5);
+function renderThirdPerson(){
+  ctx.fillStyle = '#88d9ff';
+  ctx.fillRect(0,0,width,height);
+  drawBackground();
+  drawGround(world.camera);
+  drawBuildings(world.camera);
+  drawDecorTop(world.camera);
+  for (const car of world.cars) car.draw(ctx, world.camera, viewMode);
+  world.player.draw(ctx, world.camera, viewMode);
+}
 
-  // simple sun
-  ctx.beginPath();
+function drawBackground(){
+  const grad = ctx.createLinearGradient(0,0,0,height*0.5);
+  grad.addColorStop(0,'#fdf0ff');
+  grad.addColorStop(0.6,'#ffc6e7');
+  grad.addColorStop(1,'#8ec5ff');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,width,height*0.5);
   ctx.fillStyle = '#fff2b2';
-  ctx.arc(1100, 80, 42, 0, Math.PI*2);
+  ctx.beginPath();
+  ctx.arc(width - 120, 90, 42, 0, Math.PI*2);
   ctx.fill();
+}
 
-  // palm silhouettes
-  ctx.fillStyle = 'rgba(10,10,10,0.16)';
-  for (let i=0;i<7;i++){
-    const px = 120 + i*150;
+function drawGround(cam){
+  ctx.fillStyle = '#f7e6d2';
+  ctx.fillRect(0,0,width,height);
+
+  for (const road of world.roads){
+    const rect = screenRectFromWorld(road, cam);
     ctx.save();
-    ctx.translate(px, 180 + Math.sin(i)*6);
-    ctx.fillRect(-4, 0, 8, 40);
-    for (let s=0;s<5;s++){
-      ctx.beginPath();
-      ctx.ellipse(0 - s*12, -8 - s*6, 22 - s*2, 8, -0.6 + s*0.18, 0, Math.PI*2);
-      ctx.fill();
+    ctx.fillStyle = '#2e2e33';
+    ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([14,18]);
+    ctx.beginPath();
+    if (road.w > road.h){
+      ctx.moveTo(rect.x, rect.y + rect.h/2);
+      ctx.lineTo(rect.x + rect.w, rect.y + rect.h/2);
+    } else {
+      ctx.moveTo(rect.x + rect.w/2, rect.y);
+      ctx.lineTo(rect.x + rect.w/2, rect.y + rect.h);
     }
+    ctx.stroke();
+    ctx.setLineDash([]);
     ctx.restore();
   }
 }
 
-function drawGround(cam) {
-  // base: sand
-  ctx.fillStyle = '#f7e6d2';
+function drawBuildings(cam){
+  for (const b of world.buildings){
+    const rect = screenRectFromWorld(b, cam);
+    ctx.save();
+    ctx.translate(rect.x, rect.y);
+    ctx.fillStyle = b.color;
+    ctx.fillRect(0, 0, rect.w, rect.h);
+    ctx.fillStyle = b.roof;
+    ctx.fillRect(0, -10, rect.w, 10);
+    for (const w of b.windows){
+      const wx = (w.x / b.w) * rect.w;
+      const wy = (w.y / b.h) * rect.h;
+      ctx.fillStyle = w.color;
+      ctx.fillRect(wx, wy, rect.w * 0.1, rect.h * 0.12);
+    }
+    const doorX = (b.door.x - b.x) / b.w * rect.w;
+    const doorY = (b.door.y - b.y) / b.h * rect.h;
+    ctx.fillStyle = '#1c1c1c';
+    ctx.fillRect(doorX - 14, doorY - 32, 28, 40);
+    ctx.restore();
+  }
+}
+
+function drawDecorTop(cam){
+  ctx.fillStyle = '#22765c';
+  for (const palm of world.decor){
+    const base = worldToScreen(palm.x, palm.y, cam);
+    ctx.fillRect(base.x-2, base.y-40, 4, 40);
+    for (let i=0;i<4;i++){
+      ctx.beginPath();
+      ctx.ellipse(base.x + Math.sin(i)*12, base.y-44 - i*6, 18 - i*2, 8, Math.sin(i)*0.4, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+}
+
+/* -----------------------
+   first-person rendering
+----------------------- */
+function renderFirstPerson(){
+  const viewer = world.player.inCar ? world.player.inCar : world.player;
+  const heading = world.player.inCar ? world.player.inCar.angle : world.player.heading;
+  const origin = { x: viewer.x, y: viewer.y };
+  const horizon = height * 0.42;
+  const groundY = height * 0.92;
+  const focal = 640;
+
+  ctx.fillStyle = '#10142b';
   ctx.fillRect(0,0,width,height);
 
-  // draw stylized roads (convert world coords)
-  // For demo: draw a curving road that crosses the map center
-  ctx.save();
-  ctx.translate(width/2 - (cam.x - world.mapSize.w/2), height/2 - (cam.y - world.mapSize.h/2));
-  ctx.fillStyle = '#2b2b2b';
+  drawFirstPersonSky(horizon);
+  drawFirstPersonGround(horizon, groundY);
+
+  const entities = [];
+
+  for (const b of world.buildings){
+    const centerX = b.x + b.w/2;
+    const centerY = b.y + b.h/2;
+    const cam = toCameraSpace(centerX, centerY, origin, heading);
+    if (cam.forward <= 30 || cam.forward > 2200) continue;
+    entities.push({
+      type:'building',
+      forward: cam.forward,
+      side: cam.side,
+      width: b.w,
+      height: 240,
+      baseColor: b.color,
+      accent: b.roof
+    });
+  }
+
+  for (const decor of world.decor){
+    const cam = toCameraSpace(decor.x, decor.y, origin, heading);
+    if (cam.forward <= 20 || cam.forward > 1500) continue;
+    entities.push({
+      type:'palm',
+      forward: cam.forward,
+      side: cam.side,
+      width: 40,
+      height: decor.height
+    });
+  }
+
+  for (const car of world.cars){
+    const cam = toCameraSpace(car.x, car.y, origin, heading);
+    if (cam.forward <= 20 || cam.forward > 1800) continue;
+    entities.push({
+      type:'car',
+      forward: cam.forward,
+      side: cam.side,
+      width: car.w,
+      height: 50,
+      color: car.color,
+      isPlayer: car === world.player.inCar
+    });
+  }
+
+  entities.sort((a,b) => b.forward - a.forward);
+  for (const ent of entities){
+    drawFirstPersonEntity(ent, horizon, groundY, focal);
+  }
+
+  drawFirstPersonHud(viewer, groundY);
+  drawCrosshair();
+  updatePointerHint();
+}
+
+function drawFirstPersonSky(horizon){
+  const grad = ctx.createLinearGradient(0,0,0,horizon);
+  grad.addColorStop(0,'#070d21');
+  grad.addColorStop(0.45,'#322a63');
+  grad.addColorStop(0.8,'#f77fdc');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,width,horizon);
+  ctx.fillStyle = '#ffdca1';
   ctx.beginPath();
-  ctx.rect(-2000, 300, 4000, 200);
-  ctx.rect(-2000, 1100, 4000, 200);
+  ctx.arc(width*0.15, horizon*0.4, 60, 0, Math.PI*2);
   ctx.fill();
-  // road neon lines
-  ctx.strokeStyle = 'rgba(255,255,255,0.14)';
+}
+
+function drawFirstPersonGround(horizon, groundY){
+  const grad = ctx.createLinearGradient(0,horizon,width,height);
+  grad.addColorStop(0,'#30213f');
+  grad.addColorStop(0.6,'#f8d3c2');
+  grad.addColorStop(1,'#fef1dd');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,horizon,width,height-horizon);
+
+  ctx.fillStyle = '#26262b';
+  ctx.beginPath();
+  ctx.moveTo(width*0.2, groundY);
+  ctx.lineTo(width*0.45, horizon+60);
+  ctx.lineTo(width*0.55, horizon+60);
+  ctx.lineTo(width*0.8, groundY);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.45)';
   ctx.lineWidth = 2;
-  ctx.setLineDash([12,18]);
-  ctx.beginPath(); ctx.moveTo(-2000, 400); ctx.lineTo(2000, 400); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(-2000, 1200); ctx.lineTo(2000, 1200); ctx.stroke();
-  ctx.restore();
+  ctx.setLineDash([12,14]);
+  ctx.beginPath();
+  ctx.moveTo(width/2, horizon+60);
+  ctx.lineTo(width/2, groundY);
+  ctx.stroke();
   ctx.setLineDash([]);
 }
 
-function drawBuilding(b, cam) {
-  const s = worldToScreen(b.x, b.y, cam);
-  const sx = s.x, sy = s.y;
-  // building body
-  ctx.save();
-  ctx.translate(sx, sy);
-  // main rectangle
-  ctx.fillStyle = '#fff';
-  ctx.fillRect(0, 0, b.w, b.h);
-  // roof
-  ctx.fillStyle = '#ff94c2';
-  ctx.fillRect(0, -10, b.w, 10);
-  // windows
-  ctx.fillStyle = '#333';
-  for (let rx=10; rx < b.w-10; rx += 40) {
-    for (let ry=10; ry < b.h-20; ry += 36) {
-      ctx.fillStyle = Math.random() > 0.6 ? '#ffd' : '#9fc';
-      ctx.fillRect(rx, ry, 30, 22);
+function drawFirstPersonEntity(ent, horizon, groundY, focal){
+  const scale = focal / ent.forward;
+  const screenX = width/2 + ent.side * scale;
+  const screenWidth = clamp(ent.width * scale, 4, width*1.5);
+  const screenHeight = clamp(ent.height * scale, 4, height*1.2);
+  const baseY = groundY;
+  const topY = baseY - screenHeight;
+
+  if (ent.type === 'building'){
+    const shade = clamp(1 - ent.forward / 2200, 0.2, 1);
+    const color = shadeColor(ent.baseColor, shade);
+    ctx.fillStyle = color;
+    ctx.fillRect(screenX - screenWidth/2, topY, screenWidth, screenHeight);
+    ctx.fillStyle = shadeColor(ent.accent, shade*0.8);
+    ctx.fillRect(screenX - screenWidth/2, topY - screenHeight*0.05, screenWidth, screenHeight*0.05);
+  } else if (ent.type === 'car'){
+    ctx.fillStyle = ent.color;
+    ctx.fillRect(screenX - screenWidth/2, topY + screenHeight*0.6, screenWidth, screenHeight*0.4);
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.fillRect(screenX - screenWidth/2, topY + screenHeight*0.92, screenWidth, screenHeight*0.08);
+    if (ent.isPlayer){
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(screenX - screenWidth/2, topY + screenHeight*0.6, screenWidth, screenHeight*0.4);
     }
+  } else if (ent.type === 'palm'){
+    ctx.fillStyle = '#0b0f12';
+    ctx.fillRect(screenX-2, topY, 4, screenHeight);
+    ctx.fillStyle = '#124736';
+    ctx.beginPath();
+    ctx.ellipse(screenX, topY, screenWidth*1.6, screenHeight*0.2, 0, 0, Math.PI*2);
+    ctx.fill();
   }
-  // door (draw at local coords)
-  const doorLocalX = b.door.x - b.x;
-  const doorLocalY = b.door.y - b.y;
-  ctx.fillStyle = '#333';
-  ctx.fillRect(doorLocalX - 12, doorLocalY - 28, 24, 36);
-  ctx.restore();
 }
 
-/* minimap for orientation */
-function drawMinimap() {
-  const mw = 200, mh = 120;
+function shadeColor(hex, factor){
+  const rgb = hexColorToRgb(hex);
+  const r = clamp(Math.round(rgb.r * factor + 255*(1-factor)*0.05), 0, 255);
+  const g = clamp(Math.round(rgb.g * factor + 255*(1-factor)*0.05), 0, 255);
+  const b = clamp(Math.round(rgb.b * factor + 255*(1-factor)*0.05), 0, 255);
+  return `rgb(${r},${g},${b})`;
+}
+function hexColorToRgb(hex){
+  const clean = hex.replace('#','');
+  const num = parseInt(clean, 16);
+  if (clean.length === 3){
+    return {
+      r: ((num >> 8) & 0xf) * 17,
+      g: ((num >> 4) & 0xf) * 17,
+      b: (num & 0xf) * 17
+    };
+  }
+  return {
+    r: (num >> 16) & 255,
+    g: (num >> 8) & 255,
+    b: num & 255
+  };
+}
+
+function drawFirstPersonHud(viewer, groundY){
+  const speed = viewer instanceof Car
+    ? Math.abs(viewer.speed) * 0.05
+    : world.player.currentSpeed * 0.05;
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.fillRect(30, height-90, 200, 60);
+  ctx.fillStyle = '#fff';
+  ctx.font = '20px "Segoe UI", sans-serif';
+  ctx.fillText(`${speed.toFixed(0)} mph`, 44, height-56);
+  ctx.font = '12px "Segoe UI", sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  ctx.fillText(viewer instanceof Car ? 'Drive mode' : 'On foot', 44, height-34);
+
+  if (viewer instanceof Car){
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.fillRect(width-220, height-90, 180, 60);
+    ctx.fillStyle = '#fff';
+    ctx.font = '13px "Segoe UI", sans-serif';
+    ctx.fillText('E: exit vehicle', width-200, height-56);
+    ctx.fillText('RT / W: accelerate', width-200, height-38);
+  } else {
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.fillRect(width-220, height-90, 180, 60);
+    ctx.fillStyle = '#fff';
+    ctx.font = '13px "Segoe UI", sans-serif';
+    ctx.fillText('E: interact', width-200, height-56);
+    ctx.fillText('Hold mouse / right stick to look', width-200, height-38);
+  }
+}
+
+function drawCrosshair(){
+  ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(width/2 - 10, height/2);
+  ctx.lineTo(width/2 + 10, height/2);
+  ctx.moveTo(width/2, height/2 - 10);
+  ctx.lineTo(width/2, height/2 + 10);
+  ctx.stroke();
+}
+
+/* -----------------------
+   minimap overlay
+----------------------- */
+function drawMinimap(){
+  const mw = 200, mh = 130;
   ctx.save();
-  ctx.translate(width - mw - 14, 14);
-  ctx.fillStyle = 'rgba(0,0,0,0.36)';
-  roundRect(ctx, 0,0,mw,mh,8,true,false);
-  // map contents: draw player and cars scaled to map
-  const sx = 8, sy = 8, sw = mw - 16, sh = mh - 16;
-  ctx.fillStyle = '#2b2b2b';
-  ctx.fillRect(sx, sy, sw, sh);
-  const fx = (world.player.x / world.mapSize.w)*sw + sx;
-  const fy = (world.player.y / world.mapSize.h)*sh + sy;
-  ctx.fillStyle = '#ffd966';
-  ctx.beginPath(); ctx.arc(fx, fy, 4,0,Math.PI*2); ctx.fill();
-  for (let c of world.cars) {
-    const cxp = (c.x / world.mapSize.w)*sw + sx;
-    const cyp = (c.y / world.mapSize.h)*sh + sy;
-    ctx.fillStyle = c.color;
-    ctx.fillRect(cxp-3, cyp-2, 6, 4);
+  ctx.translate(width - mw - 18, 18);
+  ctx.fillStyle = 'rgba(0,0,0,0.45)';
+  roundRect(ctx, 0,0,mw,mh,10,true,false);
+  ctx.fillStyle = '#1f2b38';
+  ctx.fillRect(8,8,mw-16,mh-16);
+
+  const sw = mw-16;
+  const sh = mh-16;
+  const toMap = (wx, wy) => ({
+    x: (wx / world.mapSize.w) * sw + 8,
+    y: (wy / world.mapSize.h) * sh + 8
+  });
+
+  ctx.fillStyle = '#ff72c8';
+  for (const road of world.roads){
+    const start = toMap(road.x, road.y);
+    const size = {
+      w: road.w / world.mapSize.w * sw,
+      h: road.h / world.mapSize.h * sh
+    };
+    ctx.globalAlpha = 0.18;
+    ctx.fillRect(start.x, start.y, size.w, size.h);
+    ctx.globalAlpha = 1;
   }
+
+  for (const car of world.cars){
+    const p = toMap(car.x, car.y);
+    ctx.fillStyle = car.color;
+    ctx.fillRect(p.x-3, p.y-2, 6, 4);
+  }
+
+  const playerPos = toMap(world.player.x, world.player.y);
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(playerPos.x, playerPos.y, 5, 0, Math.PI*2);
+  ctx.fill();
   ctx.restore();
 }
 
-/* helper: rounded rect */
 function roundRect(ctx,x,y,w,h,r,fill,stroke){
-  if (typeof r === 'undefined') r = 5;
   ctx.beginPath();
   ctx.moveTo(x+r,y);
   ctx.arcTo(x+w,y,x+w,y+h,r);
@@ -552,90 +996,100 @@ function roundRect(ctx,x,y,w,h,r,fill,stroke){
 }
 
 /* -----------------------
-   reset and UI bindings
-   -----------------------*/
-function resetWorld(){
-  world.buildings = [];
-  world.cars = [];
-  world.player = null;
-  world.camera = { x:0, y:0, zoom:1 };
-  createDemoWorld();
-  world.camera.x = world.player.x;
-  world.camera.y = world.player.y;
+   pointer hint visibility
+----------------------- */
+function updatePointerHint(){
+  pointerHint.style.display = (viewMode === 'first' && !input.pointerLocked) ? 'block' : 'none';
 }
-document.getElementById('resetBtn').addEventListener('click', resetWorld);
+
+/* -----------------------
+   game loop
+----------------------- */
+let viewMode = 'third';
+let lastTime = performance.now();
+let fps = 0;
+let interactHeld = false;
+
+function mainLoop(ts){
+  const dt = Math.min(0.05, (ts - lastTime) / 1000);
+  lastTime = ts;
+
+  pollGamepad();
+  composeInput();
+
+  if (input.toggleView){
+    viewMode = (viewMode === 'third') ? 'first' : 'third';
+    uiMode.textContent = 'view: ' + (viewMode === 'third' ? '3rd person' : '1st person');
+    if (viewMode === 'third' && document.pointerLockElement === canvas){
+      document.exitPointerLock();
+    }
+    input.toggleView = false;
+  }
+
+  if (input.interact){
+    if (!interactHeld){
+      tryEnterExit();
+      interactHeld = true;
+    }
+  } else {
+    interactHeld = false;
+  }
+
+  world.player.update(dt, input, viewMode);
+  for (const car of world.cars) car.update(dt, input);
+
+  if (viewMode === 'third'){
+    updateCamera(dt);
+  } else {
+    const follow = world.player.inCar ? world.player.inCar : world.player;
+    world.camera.x = follow.x;
+    world.camera.y = follow.y;
+  }
+
+  renderScene();
+
+  fps = Math.round(1/dt);
+  fpsLabel.textContent = fps + ' fps';
+
+  input.lookDeltaX = 0;
+
+  window.requestAnimationFrame(mainLoop);
+}
+
+/* -----------------------
+   reset & init
+----------------------- */
+function resetWorld(){
+  if (document.pointerLockElement === canvas) document.exitPointerLock();
+  enterHouseDiv.style.display = 'none';
+  createDemoWorld();
+}
+resetBtn.addEventListener('click', resetWorld);
 closeHouseBtn.addEventListener('click', closeHouse);
 
 /* -----------------------
-   initialize and start
-   -----------------------*/
-createDemoWorld();
-world.camera.x = world.player.x;
-world.camera.y = world.player.y;
-window.requestAnimationFrame(mainLoop);
-
-/* make canvas responsive but non-scrolling; keep aspect ratio */
-function fitCanvas() {
+   responsive canvas
+----------------------- */
+function fitCanvas(){
   const maxW = window.innerWidth - 40;
   const maxH = window.innerHeight - 40;
-  // canvas has intrinsic size width x height; CSS scaled
   const scale = Math.min(maxW / width, maxH / height);
-  canvas.style.width = (width * scale) + 'px';
-  canvas.style.height = (height * scale) + 'px';
+  canvas.style.width = `${width * scale}px`;
+  canvas.style.height = `${height * scale}px`;
 }
 window.addEventListener('resize', fitCanvas);
 fitCanvas();
 
 /* -----------------------
-   notes/comments section
-   -----------------------
-   what each major block does:
+   boot
+----------------------- */
+createDemoWorld();
+window.requestAnimationFrame(mainLoop);
+updatePointerHint();
 
-   - configuration & globals:
-       sets canvas, world map size, global variables.
-
-   - utility helpers:
-       small helper functions (clamp, len).
-
-   - Player & Car classes:
-       player supports walking and being linked to a car (inCar).
-       Car supports simple forward/back acceleration, steering change,
-       friction, and driver assignment.
-
-   - world generation:
-       createDemoWorld() populates buildings and cars.
-
-   - input handling:
-       keyboard events set input flags. pollGamepad() uses the
-       gamepad API (axes & buttons) to map to the same input flags.
-
-   - world->screen conversion:
-       worldToScreen() maps world coords to canvas coords using camera.
-
-   - interactions (enter/exit):
-       tryEnterExit() is called on pressing 'e' to enter/exit cars or houses.
-
-   - house overlay:
-       very simple overlay modal shown when entering houses.
-
-   - mainLoop & render:
-       game loop updates physics, camera smoothing, draws the scene.
-
-   - rendering helpers:
-       drawBackground(), drawGround(), drawBuilding(), drawMinimap() create
-       the Miami look: pastel sky, sun, palm silhouettes, neon road lines.
-
-   - fit/responsive:
-       fitCanvas() scales the canvas to viewport but prevents page scrolling.
-
-   Implementation notes:
-   - everything is intentionally kept simple to fit into one script.
-   - replace the rectangle-based building draw calls with sprites or
-     3d models later if you want higher fidelity.
-   - for better vehicle handling, add a proper physics integrator,
-     tire grip model, and collision detection against world objects.
-
-------------------------------------------------------------*/
+/* -----------------------
+   end of script
+----------------------- */
 </script>
 </body>
 </html>
