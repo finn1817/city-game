@@ -231,6 +231,7 @@ class Player {
     this.y = y;
     this.angle = 0;
     this.heading = toRad(90); // default facing south
+    this.pitch = 0; // vertical look angle (radians)
     this.walkSpeed = 260;
     this.radius = 14;
     this.inCar = null;
@@ -254,6 +255,14 @@ class Player {
       this.heading += mouseYaw + analogYaw + keyYaw;
       this.angle = this.heading;
       input.lookDeltaX = 0;
+
+      // Vertical look (pitch) control
+      const mousePitch = input.lookDeltaY * 0.0025;
+      const analogPitch = input.lookAnalogY * 1.6 * dt;
+      this.pitch += mousePitch + analogPitch;
+      // Clamp pitch: -60° (up) to +45° (down)
+      this.pitch = clamp(this.pitch, -Math.PI/3, Math.PI/4);
+      input.lookDeltaY = 0;
 
       const forward = { x: Math.cos(this.heading), y: Math.sin(this.heading) };
       const right = { x: Math.cos(this.heading + Math.PI/2), y: Math.sin(this.heading + Math.PI/2) };
@@ -450,7 +459,7 @@ const keyState = {
   turnLeft:false, turnRight:false
 };
 const padState = {
-  axisX:0, axisY:0, lookX:0,
+  axisX:0, axisY:0, lookX:0, lookY:0,
   forward:false, backward:false, left:false, right:false,
   interact:false, toggleView:false
 };
@@ -460,7 +469,9 @@ const input = {
   interact:false,
   toggleView:false,
   lookDeltaX:0,
+  lookDeltaY:0,
   lookAnalog:0,
+  lookAnalogY:0,
   turnKeyLeft:false,
   turnKeyRight:false,
   pointerLocked:false
@@ -502,6 +513,7 @@ function composeInput(){
 
   input.interact = keyState.interact || padState.interact;
   input.lookAnalog = padState.lookX;
+  input.lookAnalogY = padState.lookY || 0;
   input.turnKeyLeft = keyState.turnLeft;
   input.turnKeyRight = keyState.turnRight;
 
@@ -515,7 +527,7 @@ function pollGamepad(){
   const gamepads = navigator.getGamepads ? navigator.getGamepads() : null;
   const g = gamepads ? gamepads[0] : null;
   if (!g){
-    padState.axisX = padState.axisY = padState.lookX = 0;
+    padState.axisX = padState.axisY = padState.lookX = padState.lookY = 0;
     padState.forward = padState.backward = padState.left = padState.right = false;
     padState.interact = false;
     return;
@@ -524,9 +536,11 @@ function pollGamepad(){
   const lx = Math.abs(g.axes[0]) > dead ? g.axes[0] : 0;
   const ly = Math.abs(g.axes[1]) > dead ? g.axes[1] : 0;
   const rx = Math.abs(g.axes[2]) > dead ? g.axes[2] : 0;
+  const ry = Math.abs(g.axes[3]) > dead ? g.axes[3] : 0;
   padState.axisX = lx;
   padState.axisY = ly;
   padState.lookX = rx;
+  padState.lookY = ry;
   padState.forward = ly < -dead;
   padState.backward = ly > dead;
   padState.left = lx < -dead;
@@ -552,6 +566,7 @@ document.addEventListener('pointerlockchange', () => {
 document.addEventListener('mousemove', e => {
   if (!input.pointerLocked) return;
   input.lookDeltaX += e.movementX;
+  input.lookDeltaY += e.movementY;
 });
 
 /* -----------------------
@@ -733,16 +748,22 @@ function drawDecorTop(cam){
 function renderFirstPerson(){
   const viewer = world.player.inCar ? world.player.inCar : world.player;
   const heading = world.player.inCar ? world.player.inCar.angle : world.player.heading;
+  const pitch = world.player.pitch;
   const origin = { x: viewer.x, y: viewer.y };
-  const horizon = height * 0.42;
-  const groundY = height * 0.92;
+  
+  // Dynamic horizon based on pitch (vertical look angle)
+  // When looking up (negative pitch), horizon moves down
+  // When looking down (positive pitch), horizon moves up
+  const baseLine = height * 0.5;
+  const pitchOffset = pitch * (height * 0.8);
+  const horizon = clamp(baseLine + pitchOffset, -height * 0.3, height * 1.2);
   const focal = 640;
 
   ctx.fillStyle = '#10142b';
   ctx.fillRect(0,0,width,height);
 
   drawFirstPersonSky(horizon);
-  drawFirstPersonGround(horizon, groundY);
+  drawFirstPersonGround(horizon);
 
   const entities = [];
 
@@ -790,61 +811,63 @@ function renderFirstPerson(){
 
   entities.sort((a,b) => b.forward - a.forward);
   for (const ent of entities){
-    drawFirstPersonEntity(ent, horizon, groundY, focal);
+    drawFirstPersonEntity(ent, horizon, focal, pitch);
   }
 
-  drawFirstPersonHud(viewer, groundY);
+  drawFirstPersonHud(viewer);
   drawCrosshair();
   updatePointerHint();
 }
 
 function drawFirstPersonSky(horizon){
-  const grad = ctx.createLinearGradient(0,0,0,horizon);
+  const skyHeight = Math.max(horizon, 0);
+  if (skyHeight <= 0) return;
+  
+  const grad = ctx.createLinearGradient(0,0,0,skyHeight);
   grad.addColorStop(0,'#070d21');
   grad.addColorStop(0.45,'#322a63');
   grad.addColorStop(0.8,'#f77fdc');
+  grad.addColorStop(1,'#ffa8d8');
   ctx.fillStyle = grad;
-  ctx.fillRect(0,0,width,horizon);
-  ctx.fillStyle = '#ffdca1';
-  ctx.beginPath();
-  ctx.arc(width*0.15, horizon*0.4, 60, 0, Math.PI*2);
-  ctx.fill();
+  ctx.fillRect(0,0,width,skyHeight);
+  
+  // Sun position adjusts with view
+  if (horizon > 50 && horizon < height){
+    ctx.fillStyle = '#ffdca1';
+    ctx.beginPath();
+    ctx.arc(width*0.15, Math.min(horizon*0.4, horizon - 80), 60, 0, Math.PI*2);
+    ctx.fill();
+  }
 }
 
-function drawFirstPersonGround(horizon, groundY){
-  const grad = ctx.createLinearGradient(0,horizon,width,height);
-  grad.addColorStop(0,'#30213f');
-  grad.addColorStop(0.6,'#f8d3c2');
+function drawFirstPersonGround(horizon){
+  const groundStart = Math.max(horizon, 0);
+  const groundHeight = height - groundStart;
+  
+  if (groundHeight <= 0) return;
+  
+  // Gradient ground fading to distance
+  const grad = ctx.createLinearGradient(0, groundStart, 0, height);
+  grad.addColorStop(0,'#4a3d52');
+  grad.addColorStop(0.3,'#796a6f');
+  grad.addColorStop(0.7,'#f8d3c2');
   grad.addColorStop(1,'#fef1dd');
   ctx.fillStyle = grad;
-  ctx.fillRect(0,horizon,width,height-horizon);
-
-  ctx.fillStyle = '#26262b';
-  ctx.beginPath();
-  ctx.moveTo(width*0.2, groundY);
-  ctx.lineTo(width*0.45, horizon+60);
-  ctx.lineTo(width*0.55, horizon+60);
-  ctx.lineTo(width*0.8, groundY);
-  ctx.closePath();
-  ctx.fill();
-
-  ctx.strokeStyle = 'rgba(255,255,255,0.45)';
-  ctx.lineWidth = 2;
-  ctx.setLineDash([12,14]);
-  ctx.beginPath();
-  ctx.moveTo(width/2, horizon+60);
-  ctx.lineTo(width/2, groundY);
-  ctx.stroke();
-  ctx.setLineDash([]);
+  ctx.fillRect(0, groundStart, width, groundHeight);
 }
 
-function drawFirstPersonEntity(ent, horizon, groundY, focal){
+function drawFirstPersonEntity(ent, horizon, focal, pitch){
   const scale = focal / ent.forward;
   const screenX = width/2 + ent.side * scale;
   const screenWidth = clamp(ent.width * scale, 4, width*1.5);
   const screenHeight = clamp(ent.height * scale, 4, height*1.2);
-  const baseY = groundY;
+  
+  // Base of entity sits on horizon line
+  const baseY = horizon;
   const topY = baseY - screenHeight;
+
+  // Cull entities outside view
+  if (baseY < -screenHeight || topY > height + 100) return;
 
   if (ent.type === 'building'){
     const shade = clamp(1 - ent.forward / 2200, 0.2, 1);
@@ -897,7 +920,7 @@ function hexColorToRgb(hex){
   };
 }
 
-function drawFirstPersonHud(viewer, groundY){
+function drawFirstPersonHud(viewer){
   const speed = viewer instanceof Car
     ? Math.abs(viewer.speed) * 0.05
     : world.player.currentSpeed * 0.05;
@@ -923,7 +946,7 @@ function drawFirstPersonHud(viewer, groundY){
     ctx.fillStyle = '#fff';
     ctx.font = '13px "Segoe UI", sans-serif';
     ctx.fillText('E: interact', width-200, height-56);
-    ctx.fillText('Hold mouse / right stick to look', width-200, height-38);
+    ctx.fillText('Move mouse to look around', width-200, height-38);
   }
 }
 
@@ -1020,8 +1043,11 @@ function mainLoop(ts){
   if (input.toggleView){
     viewMode = (viewMode === 'third') ? 'first' : 'third';
     uiMode.textContent = 'view: ' + (viewMode === 'third' ? '3rd person' : '1st person');
-    if (viewMode === 'third' && document.pointerLockElement === canvas){
-      document.exitPointerLock();
+    if (viewMode === 'third'){
+      if (document.pointerLockElement === canvas){
+        document.exitPointerLock();
+      }
+      world.player.pitch = 0; // Reset pitch when switching to third person
     }
     input.toggleView = false;
   }
@@ -1052,6 +1078,7 @@ function mainLoop(ts){
   fpsLabel.textContent = fps + ' fps';
 
   input.lookDeltaX = 0;
+  input.lookDeltaY = 0;
 
   window.requestAnimationFrame(mainLoop);
 }
