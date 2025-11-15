@@ -1,0 +1,641 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Miami Prototype — GTA-like demo (single file)</title>
+<style>
+  /* layout: fixed, no scrolling, full viewport */
+  html,body { height:100%; margin:0; background:linear-gradient(#0f2233,#2b0f2f); overflow:hidden; font-family:Segoe UI,Roboto,Arial,sans-serif; }
+  #gameRoot { width:100vw; height:100vh; display:flex; align-items:flex-start; justify-content:center; position:relative; }
+  canvas { box-shadow:0 8px 30px rgba(0,0,0,0.7); border-radius:8px; background:linear-gradient(#88d9ff 0%, #b2efff 40%, #ffd3e6 100%); width:1200px; height:700px; max-width:calc(100vw - 40px); max-height:calc(100vh - 40px); image-rendering:pixelated; touch-action:none; }
+  #ui { position:absolute; left:20px; top:18px; color:white; text-shadow:0 1px 3px rgba(0,0,0,0.8); }
+  .badge { background:rgba(0,0,0,0.25); padding:6px 10px; border-radius:6px; margin-bottom:6px; display:inline-block; font-size:13px; }
+  #hint { position:absolute; right:20px; top:18px; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,0.7); }
+  #enterHouse { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); background:rgba(255,255,255,0.96); color:#111; padding:20px; border-radius:8px; display:none; width:420px; box-shadow:0 8px 30px rgba(0,0,0,0.5); }
+  #enterHouse h3 { margin:0 0 8px 0; font-size:18px; }
+  #controls { position:absolute; left:20px; bottom:18px; color:#fff; font-size:13px; }
+  #fps { position:absolute; right:20px; bottom:18px; color:#fff; }
+  .toggle { background:rgba(0,0,0,0.25); padding:6px 8px; border-radius:6px; cursor:pointer; margin-left:8px; display:inline-block; }
+</style>
+</head>
+<body>
+<div id="gameRoot">
+  <canvas id="gameCanvas" width="1200" height="700"></canvas>
+
+  <div id="ui">
+    <div class="badge" id="title">dan finn's miami prototype</div>
+    <div class="badge" id="mode">view: 3rd person</div>
+  </div>
+
+  <div id="hint">
+    <div class="badge">wasd/arrows: move • e: enter/exit car/door • c: toggle view • xbox controller supported</div>
+  </div>
+
+  <div id="controls">
+    <span class="badge">engine: js/canvas prototype</span>
+    <span class="toggle" id="resetBtn">reset</span>
+  </div>
+
+  <div id="fps"></div>
+
+  <div id="enterHouse">
+    <h3>house interior</h3>
+    <p>this is a minimal house interior overlay. press <b>e</b> to exit.</p>
+    <div style="text-align:right;margin-top:12px;"><button id="closeHouse">exit</button></div>
+  </div>
+</div>
+
+<script>
+/* -----------------------------------------------------------
+   simple GTA-like prototype (single script file)
+   - canvas render
+   - player movement (walking)
+   - cars: driveable & exitable, simple physics
+   - houses: interactive overlay (enter/exit)
+   - 3rd / 1st person modes
+   - xbox controller (gamepad API)
+   - fixed viewport, non-scrollable
+   comments: every comment line starts lowercase
+------------------------------------------------------------*/
+
+/* -----------------------
+   configuration & globals
+   -----------------------*/
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d', {alpha:false});
+const width = canvas.width, height = canvas.height;
+let lastTime = performance.now();
+let debugFPS = 0;
+
+const uiMode = document.getElementById('mode');
+const enterHouseDiv = document.getElementById('enterHouse');
+const closeHouseBtn = document.getElementById('closeHouse');
+
+const world = {
+  // simple tiled ground color + roads
+  buildings: [], // houses, rectangles with door positions
+  cars: [],      // car objects
+  player: null,
+  camera: { x:0, y:0, zoom:1 },
+  mapSize: { w: 4000, h: 2400 } // large map
+};
+
+/* -----------------------
+   utility helpers
+   -----------------------*/
+function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+function len(x,y) { return Math.hypot(x,y); }
+function now() { return performance.now(); }
+
+/* -----------------------
+   player & car classes
+   -----------------------*/
+class Player {
+  constructor(x,y){
+    this.x = x; this.y = y;
+    this.angle = 0; // facing rad
+    this.speed = 0;
+    this.walkSpeed = 240; // px/s
+    this.radius = 12;
+    this.inCar = null; // reference to car when inside
+  }
+  update(dt, input) {
+    if (this.inCar) {
+      // player position follows the car when inside
+      this.x = this.inCar.x; this.y = this.inCar.y;
+      this.angle = this.inCar.angle;
+      return;
+    }
+    // walking movement (camera-forward independent)
+    let vx = 0, vy = 0;
+    if (input.up) vy -= 1;
+    if (input.down) vy += 1;
+    if (input.left) vx -= 1;
+    if (input.right) vx += 1;
+    const l = Math.hypot(vx,vy);
+    if (l>0) { vx/=l; vy/=l; this.angle = Math.atan2(vy, vx); }
+    this.x += vx * this.walkSpeed * dt;
+    this.y += vy * this.walkSpeed * dt;
+    // clamp to map boundaries
+    this.x = clamp(this.x, 20, world.mapSize.w - 20);
+    this.y = clamp(this.y, 20, world.mapSize.h - 20);
+  }
+  draw(ctx, cam, viewMode) {
+    const screen = worldToScreen(this.x,this.y,cam);
+    ctx.save();
+    ctx.translate(screen.x, screen.y);
+    // if first person, draw small indicator only
+    if (viewMode === 'first') {
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc(0,0,6,0,Math.PI*2); ctx.fill();
+    } else {
+      // 3rd person player sprite: simple circle + direction
+      ctx.fillStyle = '#ffd966';
+      ctx.beginPath(); ctx.arc(0,0,this.radius,0,Math.PI*2); ctx.fill();
+      // facing arrow
+      ctx.rotate(this.angle);
+      ctx.fillStyle = '#333';
+      ctx.fillRect(0, -4, this.radius+8, 8);
+    }
+    ctx.restore();
+  }
+}
+
+class Car {
+  constructor(x,y,color='#ff5d73'){
+    this.x = x; this.y = y;
+    this.w = 48; this.h = 28;
+    this.color = color;
+    this.angle = 0;
+    this.speed = 0;
+    this.maxSpeed = 420; // px/s
+    this.accel = 800;
+    this.brake = 1200;
+    this.turnSpeed = 2.2; // rad/s at speed factor
+    this.friction = 0.9;
+    this.driver = null; // player when driving
+  }
+  update(dt, input) {
+    if (this.driver) {
+      // car controlled
+      let forward = (input.up?1:0) - (input.down?1:0);
+      if (forward > 0) {
+        this.speed += this.accel * dt;
+      } else if (forward < 0) {
+        this.speed -= this.brake * dt;
+      } else {
+        // natural friction
+        this.speed *= Math.pow(this.friction, dt*60);
+        if (Math.abs(this.speed) < 6) this.speed = 0;
+      }
+      this.speed = clamp(this.speed, -this.maxSpeed*0.4, this.maxSpeed);
+      // turning affected by speed
+      const turnInput = (input.left?1:0) - (input.right?1:0);
+      const speedFactor = Math.min(1, Math.abs(this.speed) / this.maxSpeed);
+      this.angle += turnInput * this.turnSpeed * speedFactor * dt;
+      // move in facing direction
+      this.x += Math.cos(this.angle) * this.speed * dt;
+      this.y += Math.sin(this.angle) * this.speed * dt;
+    } else {
+      // idle friction
+      this.speed *= Math.pow(this.friction, dt*60);
+      if (Math.abs(this.speed) < 2) this.speed = 0;
+    }
+    // keep in bounds
+    this.x = clamp(this.x, 10, world.mapSize.w - 10);
+    this.y = clamp(this.y, 10, world.mapSize.h - 10);
+  }
+  draw(ctx, cam, viewMode) {
+    const s = worldToScreen(this.x,this.y,cam);
+    ctx.save();
+    ctx.translate(s.x, s.y);
+    ctx.rotate(this.angle);
+    // car shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.beginPath(); ctx.ellipse(4, 12, this.w*0.7 * cam.zoom * 0.5, this.h*0.6 * cam.zoom * 0.5, 0, 0, Math.PI*2); ctx.fill();
+    // main car body
+    ctx.fillStyle = this.color;
+    ctx.fillRect(-this.w/2, -this.h/2, this.w, this.h);
+    // windows
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.fillRect(0 - this.w/4, -this.h/4, this.w/2, this.h/3);
+    // simple wheels
+    ctx.fillStyle = '#111';
+    ctx.fillRect(-this.w/2 + 4, this.h/2 - 6, 10, 6);
+    ctx.fillRect(this.w/2 - 14, this.h/2 - 6, 10, 6);
+    ctx.restore();
+  }
+}
+
+/* -----------------------
+   world generation
+   -----------------------*/
+function createDemoWorld() {
+  // create player in a mid-map location
+  world.player = new Player(800, 600);
+
+  // create bunch of houses (simple rectangles)
+  const cols = 5, rows = 3;
+  for (let r=0;r<rows;r++){
+    for (let c=0;c<cols;c++){
+      const bx = 400 + c*420 + (r%2)*40;
+      const by = 200 + r*420;
+      const bw = 240, bh = 160;
+      const door = { x: bx + bw - 20, y: by + bh/2 };
+      world.buildings.push({ x:bx, y:by, w:bw, h:bh, door });
+    }
+  }
+
+  // place some cars
+  world.cars.push(new Car(1100, 700, '#ff5d73'));
+  world.cars.push(new Car(980, 950, '#66ffb2'));
+  world.cars.push(new Car(1400, 1100, '#ffd66b'));
+}
+
+/* -----------------------
+   input handling (keyboard + gamepad)
+   -----------------------*/
+const input = { up:false, down:false, left:false, right:false, enter:false, toggleView:false };
+
+window.addEventListener('keydown', e => {
+  if (e.key === 'w' || e.key === 'ArrowUp') input.up = true;
+  if (e.key === 's' || e.key === 'ArrowDown') input.down = true;
+  if (e.key === 'a' || e.key === 'ArrowLeft') input.left = true;
+  if (e.key === 'd' || e.key === 'ArrowRight') input.right = true;
+  if (e.key.toLowerCase() === 'e') input.enter = true;
+  if (e.key.toLowerCase() === 'c') input.toggleView = true;
+  if (e.key.toLowerCase() === 'r') resetWorld();
+});
+
+window.addEventListener('keyup', e => {
+  if (e.key === 'w' || e.key === 'ArrowUp') input.up = false;
+  if (e.key === 's' || e.key === 'ArrowDown') input.down = false;
+  if (e.key === 'a' || e.key === 'ArrowLeft') input.left = false;
+  if (e.key === 'd' || e.key === 'ArrowRight') input.right = false;
+  if (e.key.toLowerCase() === 'e') input.enter = false;
+  if (e.key.toLowerCase() === 'c') input.toggleView = false;
+});
+
+/* gamepad support: xbox controller mapping */
+function pollGamepad() {
+  const g = navigator.getGamepads ? navigator.getGamepads()[0] : null;
+  if (!g) return;
+  // left stick axes: g.axes[0] horizontal, g.axes[1] vertical
+  const dead = 0.2;
+  const ax = Math.abs(g.axes[0]) > dead ? g.axes[0] : 0;
+  const ay = Math.abs(g.axes[1]) > dead ? g.axes[1] : 0;
+  input.left = ax < -0.4;
+  input.right = ax > 0.4;
+  input.up = ay < -0.4;
+  input.down = ay > 0.4;
+  // A button (index 0) for enter/exit
+  input.enter = g.buttons[0]?.pressed;
+  // B button (1) toggles view (on press)
+  if (g.buttons[1]?.pressed && !pollGamepad._prevB) input.toggleView = true;
+  else input.toggleView = false;
+  pollGamepad._prevB = g.buttons[1]?.pressed;
+}
+
+/* -----------------------
+   world -> screen conversion
+   camera simple follow
+   -----------------------*/
+function worldToScreen(wx, wy, cam) {
+  // camera centered on player (or car)
+  const cx = cam.x, cy = cam.y;
+  const sx = (wx - cx) + width/2;
+  const sy = (wy - cy) + height/2;
+  return { x: sx, y: sy, zoom: cam.zoom };
+}
+
+function updateCamera(dt, viewMode) {
+  // camera follows driver if in car, else player
+  const follow = world.player.inCar ? world.player.inCar : world.player;
+  // smooth follow
+  world.camera.x += (follow.x - world.camera.x) * clamp(6*dt, 0, 1);
+  world.camera.y += (follow.y - world.camera.y) * clamp(6*dt, 0, 1);
+  // zoom levels for 1st/3rd person
+  world.camera.zoom = viewMode === 'third' ? 1 : 1.0;
+}
+
+/* -----------------------
+   interactions: enter/exit cars & houses
+   -----------------------*/
+function tryEnterExit() {
+  // if inside house, pressing e will close interior
+  if (enterHouseDiv.style.display === 'block') {
+    closeHouse();
+    return;
+  }
+
+  // if player in car -> exit to side
+  if (world.player.inCar) {
+    const car = world.player.inCar;
+    // eject offset
+    const exitX = car.x + Math.cos(car.angle) * (car.w + 24);
+    const exitY = car.y + Math.sin(car.angle) * (car.w + 24);
+    world.player.inCar.driver = null;
+    world.player.inCar = null;
+    world.player.x = clamp(exitX, 20, world.mapSize.w - 20);
+    world.player.y = clamp(exitY, 20, world.mapSize.h - 20);
+    return;
+  }
+
+  // if near a car -> enter it
+  for (let c of world.cars) {
+    if (len(world.player.x - c.x, world.player.y - c.y) < 60) {
+      // assign driver
+      c.driver = world.player;
+      world.player.inCar = c;
+      // set player's pos to car immediately
+      world.player.x = c.x; world.player.y = c.y;
+      return;
+    }
+  }
+
+  // if near house door -> show interior
+  for (let b of world.buildings) {
+    const d = b.door;
+    if (len(world.player.x - d.x, world.player.y - d.y) < 48) {
+      // open interior overlay
+      openHouse(b);
+      return;
+    }
+  }
+}
+
+/* -----------------------
+   house overlay handling
+   -----------------------*/
+function openHouse(building) {
+  enterHouseDiv.style.display = 'block';
+  enterHouseDiv.querySelector('h3').textContent = 'interior - house';
+}
+function closeHouse() {
+  enterHouseDiv.style.display = 'none';
+}
+
+/* -----------------------
+   main loop
+   -----------------------*/
+let viewMode = 'third'; // 'third' or 'first'
+function mainLoop(ts) {
+  const dt = Math.min(0.05, (ts - lastTime) / 1000);
+  lastTime = ts;
+
+  // poll gamepad (if connected)
+  pollGamepad();
+
+  // handle toggles (toggleView should trigger only once per keypress)
+  if (input.toggleView) {
+    viewMode = (viewMode === 'third') ? 'first' : 'third';
+    uiMode.textContent = 'view: ' + (viewMode === 'third' ? '3rd person' : '1st person');
+    input.toggleView = false;
+  }
+
+  // action button pressed -> enter / exit / open door
+  if (input.enter) {
+    // debounce simple: handle immediately, then require release to re-trigger
+    if (!mainLoop._enterHeld) tryEnterExit();
+    mainLoop._enterHeld = true;
+  } else mainLoop._enterHeld = false;
+
+  // update player & cars
+  world.player.update(dt, input);
+  for (let c of world.cars) c.update(dt, input);
+
+  // update camera
+  updateCamera(dt, viewMode);
+
+  // render scene
+  renderScene(viewMode);
+
+  // fps meter
+  debugFPS = Math.round(1/dt);
+  document.getElementById('fps').textContent = debugFPS + ' fps';
+
+  window.requestAnimationFrame(mainLoop);
+}
+
+/* -----------------------
+   rendering
+   -----------------------*/
+function renderScene(viewMode) {
+  // clear to Miami sky
+  ctx.fillStyle = '#88d9ff';
+  ctx.fillRect(0,0,width,height);
+
+  // background gradient / distant skyline
+  drawBackground();
+
+  // compute simple parallax camera (we already have camera pos)
+  const cam = world.camera;
+
+  // draw ground: asphalt roads and sand, stylized neon edges
+  drawGround(cam);
+
+  // draw buildings (houses)
+  for (let b of world.buildings) {
+    drawBuilding(b, cam);
+  }
+
+  // draw cars (behind player if needed)
+  for (let c of world.cars) c.draw(ctx, cam, viewMode);
+
+  // draw player
+  world.player.draw(ctx, cam, viewMode);
+
+  // draw HUD minimap
+  drawMinimap();
+}
+
+function drawBackground() {
+  // skyline + palm silhouettes for miami vibe
+  const g = ctx.createLinearGradient(0,0,0, height*0.6);
+  g.addColorStop(0, "#fbe7ff");
+  g.addColorStop(0.5, "#ffd2e6");
+  g.addColorStop(1, "#8ec5ff");
+  ctx.fillStyle = g;
+  ctx.fillRect(0,0,width, height*0.5);
+
+  // simple sun
+  ctx.beginPath();
+  ctx.fillStyle = '#fff2b2';
+  ctx.arc(1100, 80, 42, 0, Math.PI*2);
+  ctx.fill();
+
+  // palm silhouettes
+  ctx.fillStyle = 'rgba(10,10,10,0.16)';
+  for (let i=0;i<7;i++){
+    const px = 120 + i*150;
+    ctx.save();
+    ctx.translate(px, 180 + Math.sin(i)*6);
+    ctx.fillRect(-4, 0, 8, 40);
+    for (let s=0;s<5;s++){
+      ctx.beginPath();
+      ctx.ellipse(0 - s*12, -8 - s*6, 22 - s*2, 8, -0.6 + s*0.18, 0, Math.PI*2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+}
+
+function drawGround(cam) {
+  // base: sand
+  ctx.fillStyle = '#f7e6d2';
+  ctx.fillRect(0,0,width,height);
+
+  // draw stylized roads (convert world coords)
+  // For demo: draw a curving road that crosses the map center
+  ctx.save();
+  ctx.translate(width/2 - (cam.x - world.mapSize.w/2), height/2 - (cam.y - world.mapSize.h/2));
+  ctx.fillStyle = '#2b2b2b';
+  ctx.beginPath();
+  ctx.rect(-2000, 300, 4000, 200);
+  ctx.rect(-2000, 1100, 4000, 200);
+  ctx.fill();
+  // road neon lines
+  ctx.strokeStyle = 'rgba(255,255,255,0.14)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([12,18]);
+  ctx.beginPath(); ctx.moveTo(-2000, 400); ctx.lineTo(2000, 400); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-2000, 1200); ctx.lineTo(2000, 1200); ctx.stroke();
+  ctx.restore();
+  ctx.setLineDash([]);
+}
+
+function drawBuilding(b, cam) {
+  const s = worldToScreen(b.x, b.y, cam);
+  const sx = s.x, sy = s.y;
+  // building body
+  ctx.save();
+  ctx.translate(sx, sy);
+  // main rectangle
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, b.w, b.h);
+  // roof
+  ctx.fillStyle = '#ff94c2';
+  ctx.fillRect(0, -10, b.w, 10);
+  // windows
+  ctx.fillStyle = '#333';
+  for (let rx=10; rx < b.w-10; rx += 40) {
+    for (let ry=10; ry < b.h-20; ry += 36) {
+      ctx.fillStyle = Math.random() > 0.6 ? '#ffd' : '#9fc';
+      ctx.fillRect(rx, ry, 30, 22);
+    }
+  }
+  // door (draw at local coords)
+  const doorLocalX = b.door.x - b.x;
+  const doorLocalY = b.door.y - b.y;
+  ctx.fillStyle = '#333';
+  ctx.fillRect(doorLocalX - 12, doorLocalY - 28, 24, 36);
+  ctx.restore();
+}
+
+/* minimap for orientation */
+function drawMinimap() {
+  const mw = 200, mh = 120;
+  ctx.save();
+  ctx.translate(width - mw - 14, 14);
+  ctx.fillStyle = 'rgba(0,0,0,0.36)';
+  roundRect(ctx, 0,0,mw,mh,8,true,false);
+  // map contents: draw player and cars scaled to map
+  const sx = 8, sy = 8, sw = mw - 16, sh = mh - 16;
+  ctx.fillStyle = '#2b2b2b';
+  ctx.fillRect(sx, sy, sw, sh);
+  const fx = (world.player.x / world.mapSize.w)*sw + sx;
+  const fy = (world.player.y / world.mapSize.h)*sh + sy;
+  ctx.fillStyle = '#ffd966';
+  ctx.beginPath(); ctx.arc(fx, fy, 4,0,Math.PI*2); ctx.fill();
+  for (let c of world.cars) {
+    const cxp = (c.x / world.mapSize.w)*sw + sx;
+    const cyp = (c.y / world.mapSize.h)*sh + sy;
+    ctx.fillStyle = c.color;
+    ctx.fillRect(cxp-3, cyp-2, 6, 4);
+  }
+  ctx.restore();
+}
+
+/* helper: rounded rect */
+function roundRect(ctx,x,y,w,h,r,fill,stroke){
+  if (typeof r === 'undefined') r = 5;
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+  if (fill) ctx.fill();
+  if (stroke) ctx.stroke();
+}
+
+/* -----------------------
+   reset and UI bindings
+   -----------------------*/
+function resetWorld(){
+  world.buildings = [];
+  world.cars = [];
+  world.player = null;
+  world.camera = { x:0, y:0, zoom:1 };
+  createDemoWorld();
+  world.camera.x = world.player.x;
+  world.camera.y = world.player.y;
+}
+document.getElementById('resetBtn').addEventListener('click', resetWorld);
+closeHouseBtn.addEventListener('click', closeHouse);
+
+/* -----------------------
+   initialize and start
+   -----------------------*/
+createDemoWorld();
+world.camera.x = world.player.x;
+world.camera.y = world.player.y;
+window.requestAnimationFrame(mainLoop);
+
+/* make canvas responsive but non-scrolling; keep aspect ratio */
+function fitCanvas() {
+  const maxW = window.innerWidth - 40;
+  const maxH = window.innerHeight - 40;
+  // canvas has intrinsic size width x height; CSS scaled
+  const scale = Math.min(maxW / width, maxH / height);
+  canvas.style.width = (width * scale) + 'px';
+  canvas.style.height = (height * scale) + 'px';
+}
+window.addEventListener('resize', fitCanvas);
+fitCanvas();
+
+/* -----------------------
+   notes/comments section
+   -----------------------
+   what each major block does:
+
+   - configuration & globals:
+       sets canvas, world map size, global variables.
+
+   - utility helpers:
+       small helper functions (clamp, len).
+
+   - Player & Car classes:
+       player supports walking and being linked to a car (inCar).
+       Car supports simple forward/back acceleration, steering change,
+       friction, and driver assignment.
+
+   - world generation:
+       createDemoWorld() populates buildings and cars.
+
+   - input handling:
+       keyboard events set input flags. pollGamepad() uses the
+       gamepad API (axes & buttons) to map to the same input flags.
+
+   - world->screen conversion:
+       worldToScreen() maps world coords to canvas coords using camera.
+
+   - interactions (enter/exit):
+       tryEnterExit() is called on pressing 'e' to enter/exit cars or houses.
+
+   - house overlay:
+       very simple overlay modal shown when entering houses.
+
+   - mainLoop & render:
+       game loop updates physics, camera smoothing, draws the scene.
+
+   - rendering helpers:
+       drawBackground(), drawGround(), drawBuilding(), drawMinimap() create
+       the Miami look: pastel sky, sun, palm silhouettes, neon road lines.
+
+   - fit/responsive:
+       fitCanvas() scales the canvas to viewport but prevents page scrolling.
+
+   Implementation notes:
+   - everything is intentionally kept simple to fit into one script.
+   - replace the rectangle-based building draw calls with sprites or
+     3d models later if you want higher fidelity.
+   - for better vehicle handling, add a proper physics integrator,
+     tire grip model, and collision detection against world objects.
+
+------------------------------------------------------------*/
+</script>
+</body>
+</html>
