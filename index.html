@@ -256,9 +256,9 @@ class Player {
       this.angle = this.heading;
       input.lookDeltaX = 0;
 
-      // Vertical look (pitch) control
-      const mousePitch = input.lookDeltaY * 0.0025;
-      const analogPitch = input.lookAnalogY * 1.6 * dt;
+      // Vertical look (pitch) control - FIXED INVERSION
+      const mousePitch = -input.lookDeltaY * 0.0025; // Added negative sign to fix inversion
+      const analogPitch = -input.lookAnalogY * 1.6 * dt; // Added negative sign to fix inversion
       this.pitch += mousePitch + analogPitch;
       // Clamp pitch: -60° (up) to +45° (down)
       this.pitch = clamp(this.pitch, -Math.PI/3, Math.PI/4);
